@@ -3,12 +3,12 @@ import warnings
 import numpy as np
 import scipy as sp
 
-import theano
-import theano.tensor as T
-import theano.tensor.slinalg
-floatX = theano.config.floatX
+import aesara
+import aesara.tensor as T
+import aesara.tensor.slinalg
+floatX = aesara.config.floatX
 
-from emll.theano_utils import (RegularizedSolve, LeastSquaresSolve,
+from emll.aesara_utils import (RegularizedSolve, LeastSquaresSolve,
                                lstsq_wrapper)
 
 from emll.util import compute_smallbone_reduction, compute_waldherr_reduction
@@ -117,15 +117,15 @@ class LinLogBase(object):
         return xn, vn
 
 
-    def steady_state_theano(self, Ex, Ey=None, en=None, yn=None, method='scan'):
+    def steady_state_aesara(self, Ex, Ey=None, en=None, yn=None, method='scan'):
         """Calculate a the steady-state transformed metabolite concentrations
-        and fluxes using theano.
+        and fluxes using aesara.
 
-        Ex, Ey, en and yn should be theano matrices
+        Ex, Ey, en and yn should be aesara matrices
 
         solver: function
             A function to solve Ax = b for a (possibly) singular A. Should
-            accept theano matrices A and b, and return a symbolic x.
+            accept aesara matrices A and b, and return a symbolic x.
         """
 
         if Ey is None:
@@ -152,13 +152,13 @@ class LinLogBase(object):
     
         bs = T.batched_dot(-N_hat, inner_v.dimshuffle(0, 1, 'x'))
         if method == 'scan':
-            xn, _ = theano.scan(
-                lambda A, b: self.solve_theano(A, b),
+            xn, _ = aesara.scan(
+                lambda A, b: self.solve_aesara(A, b),
                 sequences=[As, bs], strict=True)
         else:
             xn_list = [None] * n_exp
             for i in range(n_exp):
-                xn_list[i] = self.solve_theano(As[i], bs[i])
+                xn_list[i] = self.solve_aesara(As[i], bs[i])
             xn = T.stack(xn_list)
 
         vn = en * (np.ones(self.nr) +
@@ -223,7 +223,7 @@ class LinLogSymbolic2x2(LinLogBase):
         return A_inv @ bi
 
 
-    def solve_theano(self, A, bi):
+    def solve_aesara(self, A, bi):
         a = A[0,0]
         b = A[0,1]
         c = A[1,0]
@@ -242,10 +242,10 @@ class LinLogLinkMatrix(LinLogBase):
         return self.L @ z
 
 
-    def solve_theano(self, A, b):
+    def solve_aesara(self, A, b):
         
         A_linked = T.dot(A, self.L)
-        z = theano.tensor.slinalg.solve(A_linked, b).squeeze()
+        z = aesara.tensor.slinalg.solve(A_linked, b).squeeze()
         return T.dot(self.L, z)
 
 
@@ -260,7 +260,7 @@ class LinLogLeastNorm(LinLogBase):
     def solve(self, A, b):
         return lstsq_wrapper(A, b, self.driver)
 
-    def solve_theano(self, A, b):
+    def solve_aesara(self, A, b):
         rsolve_op = LeastSquaresSolve(driver=self.driver)
         return rsolve_op(A, b).squeeze()
 
@@ -282,26 +282,26 @@ class LinLogTikhonov(LinLogBase):
         cho = sp.linalg.cho_factor(A_hat)
         return sp.linalg.cho_solve(cho, b_hat)
 
-    def solve_theano(self, A, b):
+    def solve_aesara(self, A, b):
         rsolve_op = RegularizedSolve(self.lambda_)
         return rsolve_op(A, b).squeeze()
 
 
 class LinLogPinv(LinLogLeastNorm):
 
-    def steady_state_theano(self, Ex, Ey=None, en=None, yn=None,
+    def steady_state_aesara(self, Ex, Ey=None, en=None, yn=None,
                             solution_basis=None, method='scan', driver='gelsy'):
         """Calculate a the steady-state transformed metabolite concentrations
-        and fluxes using theano.
+        and fluxes using aesara.
 
-        Ex, Ey, en and yn should be theano matrices
+        Ex, Ey, en and yn should be aesara matrices
 
-        solution_basis is a (n_exp, nr) theano matrix of the current solution
+        solution_basis is a (n_exp, nr) aesara matrix of the current solution
         basis.
 
         solver: function
             A function to solve Ax = b for a (possibly) singular A. Should
-            accept theano matrices A and b, and return a symbolic x.
+            accept aesara matrices A and b, and return a symbolic x.
         """
 
         if Ey is None:
@@ -337,7 +337,7 @@ class LinLogPinv(LinLogLeastNorm):
             return x
         
         if method == 'scan':
-            xn, _ = theano.scan(
+            xn, _ = aesara.scan(
                 lambda A, b, w: pinv_solution(A, b, basis=w),
                 sequences=[As, bs, solution_basis], strict=True)
 

@@ -6,9 +6,9 @@ from .util import create_elasticity_matrix, create_Ey_matrix
 
 from test_models import models
 
-import theano
-import theano.tensor as tt
-theano.config.compute_test_value = 'ignore' 
+import aesara
+import aesara.tensor as tt
+aesara.config.compute_test_value = 'ignore' 
 tt.config.optimizer = 'fast_compile'
 
 
@@ -65,7 +65,7 @@ def test_steady_state(linlog_model):
 
     chi_ss, v_hat_ss = ll.steady_state_theano(Ex_t, Ey_t, e_hat_t, y_hat_t)
 
-    io_fun = theano.function([Ex_t, Ey_t, e_hat_t, y_hat_t], 
+    io_fun = aesara.function([Ex_t, Ey_t, e_hat_t, y_hat_t], 
                              [chi_ss, v_hat_ss])
     x_theano_test, v_theano_test = io_fun(ll.Ex, ll.Ey, e_hat_np, y_hat_np)
 
