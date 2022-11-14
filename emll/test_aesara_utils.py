@@ -1,8 +1,8 @@
 import numpy as np
 import scipy as sp
-from theano.tests import unittest_tools as utt
+from aesara.tests import unittest_tools as utt
 
-from .theano_utils import RegularizedSolve, LeastSquaresSolve
+from .aesara_utils import RegularizedSolve, LeastSquaresSolve
 
 def test_regularized_solve():
 
