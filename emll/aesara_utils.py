@@ -4,8 +4,8 @@ import scipy as sp
 from scipy.linalg.misc import LinAlgError
 from scipy.linalg.lapack import get_lapack_funcs
 
-from theano import tensor
-from theano.tensor.slinalg import Solve
+from aesara import tensor
+from aesara.tensor.slinalg import Solve
 
 class SymPosSolve(Solve):   
     """
@@ -18,7 +18,7 @@ class SymPosSolve(Solve):
         output_storage[0][0] = rval
 
 
-sympos_solve = SymPosSolve(A_structure='symmetric')
+sympos_solve = SymPosSolve()#A_structure='symmetric')
 
 class RegularizedSolve(Solve):
     """
