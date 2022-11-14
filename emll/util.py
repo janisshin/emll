@@ -8,21 +8,22 @@ def create_elasticity_matrix(model):
 
     """
 
-    n_metabolites = len(model.metabolites)
-    n_reactions = len(model.reactions)
+    n_metabolites = len(model.getFloatingSpeciesIds())
+    n_reactions = len(model.getReactionIds())
     array = np.zeros((n_reactions, n_metabolites), dtype=float)
 
     m_ind = model.metabolites.index
     r_ind = model.reactions.index
 
-    for reaction in model.reactions:
+    for reaction in model.getReactionIds():
+        # for each metabolite and stoich in each reaction, 
         for metabolite, stoich in reaction.metabolites.items():
 
             # Reversible reaction, assign all elements to -stoich
             if reaction.reversibility:
                 array[r_ind(reaction), m_ind(metabolite)] = -np.sign(stoich)
 
-            # Irrevesible in forward direction, only assign if met is reactant
+            # Irreversible in forward direction, only assign if met is reactant
             elif ((not reaction.reversibility) & 
                   (reaction.upper_bound > 0) &
                   (stoich < 0)):
@@ -42,6 +43,7 @@ def create_Ey_matrix(model):
     for the unbalanced exchange reactions, and is probably best handled
     manually for now. """
 
+    # model.getBoundarySpeciesIds()
     boundary_indexes = [model.reactions.index(r) for r in model.medium.keys()]
     boundary_directions = [1 if r.products else -1 for r in
                            model.reactions.query(
@@ -109,8 +111,8 @@ def compute_smallbone_reduction(N, Ex, v_star, tol=1E-8):
     return Nr, L, P
 
 
-import theano.tensor as T
-import pymc3 as pm
+import aesara.tensor as T
+import pymc as pm
 
 def initialize_elasticity(N, name=None, b=0.01, alpha=5, sd=1,
                           m_compartments=None, r_compartments=None):
@@ -129,7 +131,7 @@ def initialize_elasticity(N, name=None, b=0.01, alpha=5, sd=1,
     N : np.ndarray
         A (nm x nr) stoichiometric matrix for the given reactions and metabolites
     name : string
-        A name to be used for the returned pymc3 probabilities
+        A name to be used for the returned pymc probabilities
     b : float
         Hyperprior to use for the Laplace distributions on regulatory interactions
     alpha : float
@@ -146,7 +148,7 @@ def initialize_elasticity(N, name=None, b=0.01, alpha=5, sd=1,
     Returns
     =======
 
-    E : pymc3 matrix
+    E : pymc matrix
         constructed elasticity matrix
 
     """
