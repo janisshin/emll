@@ -1,5 +1,27 @@
 import numpy as np
 import scipy as sp
+import libsbml
+
+
+# need to pass in the actual Stoich matrix
+def assignNegativeStoich(model, array, reaction, metabolite, stoichiometry):
+    # Reversible reaction, assign all elements to -stoich
+    if reaction.getReversible():
+       array[reaction][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
+
+    # Irreversible in forward direction, only assign if met is reactant
+    elif ((not reaction.getReversible()) & 
+              (model.getReactionRates()[model.getReactionIds().index(reaction.getId())] > 0) &
+              (stoichiometry < 0)):
+            array[reaction][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
+
+    # Irreversible in reverse direction, only assign if met is  product
+    elif ((not reaction.getReversible()) & 
+              (model.getReactionRates()[model.getReactionIds().index(reaction.getId())] < 0) &
+              (stoichiometry > 0)):
+        array[reaction][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
+
+    
 
 def create_elasticity_matrix(model):
     """Create an elasticity matrix given the model in model.
@@ -7,34 +29,26 @@ def create_elasticity_matrix(model):
     E[j,i] represents the elasticity of reaction j for metabolite i.
 
     """
+    ls_model = libsbml.readSBMLFromString(model.getSBML()).getModel()
 
     n_metabolites = len(model.getFloatingSpeciesIds())
     n_reactions = len(model.getReactionIds())
     array = np.zeros((n_reactions, n_metabolites), dtype=float)
 
-    m_ind = model.metabolites.index
-    r_ind = model.reactions.index
+    for rxn in model.getReactionIds():
+        reaction = ls_model.getReaction(rxn) 
+        # for the metabolites 
+        
+        for n in range(rxn.getNumReactants()):
+            metabolite = rxn.getReactant(n)
+            # call on function here
+            array = assignNegativeStoich(model, array, reaction, metabolite, stoichiometry)
 
-    for reaction in model.getReactionIds():
-        # for each metabolite and stoich in each reaction, 
-        for metabolite, stoich in reaction.metabolites.items():
-
-            # Reversible reaction, assign all elements to -stoich
-            if reaction.reversibility:
-                array[r_ind(reaction), m_ind(metabolite)] = -np.sign(stoich)
-
-            # Irreversible in forward direction, only assign if met is reactant
-            elif ((not reaction.reversibility) & 
-                  (reaction.upper_bound > 0) &
-                  (stoich < 0)):
-                array[r_ind(reaction), m_ind(metabolite)] = -np.sign(stoich)
-
-            # Irreversible in reverse direction, only assign in met is product
-            elif ((not reaction.reversibility) & 
-                  (reaction.lower_bound < 0) &
-                  (stoich > 0)):
-                array[r_ind(reaction), m_ind(metabolite)] = -np.sign(stoich)
-
+        for n in range(rxn.getNumProducts()):
+            metabolite = rxn.getProduct(n)
+            # call on function here
+            array = assignNegativeStoich(model, array, reaction, metabolite, stoichiometry)
+        
     return array
 
 def create_Ey_matrix(model):
@@ -42,14 +56,24 @@ def create_Ey_matrix(model):
     essentially requires considering the effects of the reactants / products
     for the unbalanced exchange reactions, and is probably best handled
     manually for now. """
+    ls_model = libsbml.readSBMLFromString(model.getSBML()).getModel()
 
     # model.getBoundarySpeciesIds()
-    boundary_indexes = [model.reactions.index(r) for r in model.medium.keys()]
-    boundary_directions = [1 if r.products else -1 for r in
-                           model.reactions.query(
-                               lambda x: x.boundary, None)]
+    boundary_indexes = [model.getReactionIds().index(r) for r in model.getBoundarySpeciesIds()]
+
+    fwd_bd = []
+    bwd_bd = []
+
+    for rxn_id in r.getReactionIds():
+        rxn = ls_model.getReaction(rxn_id) 
+        if (rxn.getNumReactants==1 and rxn.getNumProducts==0) and rxn.getReactant(0) in r.getBoundarySpeciesIds:
+                bwd_bd.append(rxn_id)
+        elif (rxn.getNumReactants==0 and rxn.getNumProducts==1) and rxn.getProduct(0) in r.getBoundarySpeciesIds:
+                fwd_bd.append(rxn_id):
+
+    boundary_directions = [1 if fwd_bd else -1 for bwd_bd]
     ny = len(boundary_indexes)
-    Ey = np.zeros((len(model.reactions), ny))
+    Ey = np.zeros((len(model.getReactionIds()), ny))
 
     for i, (rid, direction) in enumerate(zip(boundary_indexes,
                                              boundary_directions)):
