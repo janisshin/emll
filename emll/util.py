@@ -35,14 +35,14 @@ def create_elasticity_matrix(model):
     n_reactions = len(model.getReactionIds())
     array = np.zeros((n_reactions, n_metabolites), dtype=float)
 
-    for rxn in model.getReactionIds():
-        reaction = ls_model.getReaction(rxn) 
-        # for the metabolites 
+    for num in range(model.getNumReactions()):
+        rxn = ls_model.getReaction(num) 
+        print(type(rxn)) # for the metabolites 
         
         for n in range(rxn.getNumReactants()):
             metabolite = rxn.getReactant(n)
             # call on function here
-            array = assignNegativeStoich(model, array, reaction, metabolite, stoichiometry)
+            # array = assignNegativeStoich(model, array, reaction, metabolite, stoichiometry)
 
         for n in range(rxn.getNumProducts()):
             metabolite = rxn.getProduct(n)
@@ -61,17 +61,15 @@ def create_Ey_matrix(model):
     # model.getBoundarySpeciesIds()
     boundary_indexes = [model.getReactionIds().index(r) for r in model.getBoundarySpeciesIds()]
 
-    fwd_bd = []
-    bwd_bd = []
+    boundary_directions = []
 
     for rxn_id in r.getReactionIds():
         rxn = ls_model.getReaction(rxn_id) 
         if (rxn.getNumReactants==1 and rxn.getNumProducts==0) and rxn.getReactant(0) in r.getBoundarySpeciesIds:
-                bwd_bd.append(rxn_id)
+                boundary_directions.append(-1)
         elif (rxn.getNumReactants==0 and rxn.getNumProducts==1) and rxn.getProduct(0) in r.getBoundarySpeciesIds:
-                fwd_bd.append(rxn_id):
+                boundary_directions.append(1)
 
-    boundary_directions = [1 if fwd_bd else -1 for bwd_bd]
     ny = len(boundary_indexes)
     Ey = np.zeros((len(model.getReactionIds()), ny))
 
