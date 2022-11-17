@@ -1,27 +1,27 @@
 import numpy as np
 import scipy as sp
 import libsbml
-
+# import simplesbml
+# (eventually) CONVERT ALL COBRA AND LIBSBML TO SIMPLESBML
 
 # need to pass in the actual Stoich matrix
-def assignNegativeStoich(model, array, reaction, metabolite, stoichiometry):
+def assignNegativeStoich(model, array, num_rxn, reaction, metabolite):
     # Reversible reaction, assign all elements to -stoich
     if reaction.getReversible():
-       array[reaction][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
+       array[num_rxn,model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
 
     # Irreversible in forward direction, only assign if met is reactant
     elif ((not reaction.getReversible()) & 
               (model.getReactionRates()[model.getReactionIds().index(reaction.getId())] > 0) &
               (stoichiometry < 0)):
-            array[reaction][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
+            array[num_rxn][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
 
     # Irreversible in reverse direction, only assign if met is  product
     elif ((not reaction.getReversible()) & 
               (model.getReactionRates()[model.getReactionIds().index(reaction.getId())] < 0) &
               (stoichiometry > 0)):
-        array[reaction][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
-
-    
+        array[num_rxn][model.getFloatingSpeciesIds().index(metabolite.getSpecies())] = -np.sign(metabolite.getStoichiometry())
+    return array
 
 def create_elasticity_matrix(model):
     """Create an elasticity matrix given the model in model.
@@ -35,20 +35,19 @@ def create_elasticity_matrix(model):
     n_reactions = len(model.getReactionIds())
     array = np.zeros((n_reactions, n_metabolites), dtype=float)
 
-    for num in range(model.getNumReactions()):
-        rxn = ls_model.getReaction(num) 
-        print(type(rxn)) # for the metabolites 
+    for num_rxn in range(model.getNumReactions()):
+        rxn = ls_model.getReaction(num_rxn) 
         
         for n in range(rxn.getNumReactants()):
             metabolite = rxn.getReactant(n)
-            # call on function here
-            # array = assignNegativeStoich(model, array, reaction, metabolite, stoichiometry)
+            
+            if metabolite.getSpecies() not in model.getBoundarySpeciesIds():
+                array = assignNegativeStoich(model, array, num_rxn, rxn, metabolite)
 
         for n in range(rxn.getNumProducts()):
             metabolite = rxn.getProduct(n)
-            # call on function here
-            array = assignNegativeStoich(model, array, reaction, metabolite, stoichiometry)
-        
+            if metabolite.getSpecies() not in model.getBoundarySpeciesIds():
+                array = assignNegativeStoich(model, array, num_rxn, rxn, metabolite)
     return array
 
 def create_Ey_matrix(model):
